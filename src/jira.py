@@ -1,6 +1,8 @@
 from enum import Enum
 from pydantic import BaseModel, Field, model_validator
 from typing import List
+from consts import Assignee
+import statistics
 
 
 class JiraTicketType(Enum):
@@ -21,8 +23,8 @@ class OperationType(Enum):
 
 
 class JiraTicket(BaseModel):
-    feature: str
-    assignees: List[str]
+    # feature: str  # Waterloo : Not sure if should be in this class
+    assignees: List[Assignee]
     type: JiraTicketType
     story_points: int
 
@@ -47,3 +49,34 @@ class JiraTicket(BaseModel):
             values["operation_name"] = OperationType.READ
             values["operation_value"] = 1
         return values
+
+
+class JiraFeature(BaseModel):
+    name: str
+    tickets: List[JiraTicket]
+
+    def get_assignee_KQ(self, assignee: Assignee) -> float:
+        return sum(
+            [
+                max(ticket.story_points, 1)
+                * ticket.operation_value
+                / len(ticket.assignees)
+                for ticket in self.tickets
+                if assignee in ticket.assignees
+            ]
+        )
+
+    def get_assignee_KS(self, assignee: Assignee) -> float:
+        return self.get_assignee_KQ(assignee) / sum(
+            [self.get_assignee_KQ(assignee) for assignee in Assignee]
+        )
+
+    def get_mean(self) -> float:
+        return statistics.mean(
+            [self.get_assignee_KQ(assignee) for assignee in Assignee]
+        )
+
+    def get_stdev(self) -> float:
+        return statistics.stdev(
+            [self.get_assignee_KQ(assignee) for assignee in Assignee]
+        )
